@@ -194,34 +194,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             executionContext.SetVariable(Constants.Variables.Build.SourcesDirectory, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.StagingDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
             executionContext.SetVariable(Constants.Variables.Build.ArtifactStagingDirectory, Path.Combine(_workDirectory, trackingConfig.ArtifactsDirectory), isFilePath: true);
-
-            if (Repository.Properties.TryGetValue(Pipelines.RepositoryPropertyNames.Path, out string path) &&
-                !string.IsNullOrEmpty(path))
-            {
-                if (path.IndexOfAny(Path.GetInvalidPathChars()) > -1)
-                {
-                    throw new InvalidOperationException($"{path} contains invalid path characters.");
-                }
-                else
-                {
-                    var sourcesDirectory = Path.Combine(_workDirectory, trackingConfig.SourcesDirectory);
-                    var repositoryPath = Path.Combine(sourcesDirectory, path);
-                    if (string.Equals(IOUtil.MakeRelative(repositoryPath, sourcesDirectory), repositoryPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new InvalidOperationException($"{path} needs to under {sourcesDirectory}");
-                    }
-                    else
-                    {
-                        executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, repositoryPath, isFilePath: true);
-                        Repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, repositoryPath);
-                    }
-                }
-            }
-            else
-            {
-                executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory), isFilePath: true);
-                Repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(_workDirectory, trackingConfig.SourcesDirectory));
-            }
+            executionContext.SetVariable(Constants.Variables.Build.RepoLocalPath, Path.Combine(_workDirectory, trackingConfig.RepositoryDirectory), isFilePath: true);
+            Repository.Properties.Set<string>(Pipelines.RepositoryPropertyNames.Path, Path.Combine(_workDirectory, trackingConfig.RepositoryDirectory));
         }
 
         private bool TrySetPrimaryRepositoryAndProviderInfo(IExecutionContext executionContext)

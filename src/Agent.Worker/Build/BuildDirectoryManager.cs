@@ -144,6 +144,51 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
                     newConfig.RepositoryType = repository.Type;
                 }
 
+                // Make sure repository in the right location.
+                if (string.IsNullOrEmpty(newConfig.RepositoryDirectory))
+                {
+                    newConfig.RepositoryDirectory = newConfig.SourcesDirectory;
+                }
+
+                var expectRepositoryPath = newConfig.SourcesDirectory;
+                var path = repository.Properties.Get<string>(RepositoryPropertyNames.Path);
+                if (!string.IsNullOrEmpty(path))
+                {
+                    if (path.IndexOfAny(Path.GetInvalidPathChars()) > -1)
+                    {
+                        throw new InvalidOperationException($"{path} contains invalid path characters.");
+                    }
+                    else
+                    {
+                        expectRepositoryPath = Path.Combine(newConfig.SourcesDirectory, path);
+                        if (string.Equals(IOUtil.MakeRelative(expectRepositoryPath, newConfig.SourcesDirectory), expectRepositoryPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new InvalidOperationException($"{path} needs to under {newConfig.SourcesDirectory}");
+                        }
+                    }
+                }
+
+                if (!string.Equals(newConfig.RepositoryDirectory, expectRepositoryPath, IOUtil.FilePathStringComparison))
+                {
+                    var count = 1;
+                    var staging = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.BuildDirectory, $"_{count}");
+                    while (Directory.Exists(staging))
+                    {
+                        count++;
+                        staging = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.BuildDirectory, $"_{count}");
+                    }
+
+                    var currentRepoPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), newConfig.RepositoryDirectory);
+                    var expectRepoPath = Path.Combine(HostContext.GetDirectory(WellKnownDirectory.Work), expectRepositoryPath);
+                    executionContext.Output($"Move existing repository '{currentRepoPath}' to staging '{staging}'.");
+                    Directory.Move(currentRepoPath, staging);
+                    executionContext.Output($"Move staging '{staging}' to repository location '{expectRepoPath}'.");
+                    Directory.CreateDirectory(Path.GetDirectoryName(expectRepoPath));
+                    Directory.Move(staging, expectRepoPath);
+
+                    newConfig.RepositoryDirectory = expectRepositoryPath;
+                }
+
                 // For existing tracking config files, update the job run properties.
                 Trace.Verbose("Updating job run properties.");
                 trackingManager.UpdateJobRunProperties(executionContext, newConfig, trackingFile);

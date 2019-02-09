@@ -1,7 +1,9 @@
 ﻿using Microsoft.TeamFoundation.DistributedTask.Pipelines;
 using Microsoft.TeamFoundation.DistributedTask.WebApi;
+using Microsoft.VisualStudio.Services.Agent.Util;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -39,6 +41,7 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             HashKey = copy.HashKey;
             RepositoryType = repositoryType;
             RepositoryUrl = copy.RepositoryUrl;
+            RepositoryDirectory = SourcesDirectory;
             System = copy.System;
         }
 
@@ -60,6 +63,31 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             HashKey = hashKey;
             RepositoryUrl = repository.Url.AbsoluteUri;
             RepositoryType = repository.Type;
+            var path = repository.Properties.Get<string>(RepositoryPropertyNames.Path);
+            if (string.IsNullOrEmpty(path))
+            {
+                RepositoryDirectory = SourcesDirectory;
+            }
+            else
+            {
+                if (path.IndexOfAny(Path.GetInvalidPathChars()) > -1)
+                {
+                    throw new InvalidOperationException($"{path} contains invalid path characters.");
+                }
+                else
+                {
+                    RepositoryDirectory = Path.Combine(SourcesDirectory, path);
+                    if (string.Equals(IOUtil.MakeRelative(RepositoryDirectory, SourcesDirectory), RepositoryDirectory, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException($"{path} needs to under {SourcesDirectory}");
+                    }
+                    else
+                    {
+                        repository.Properties.Set<string>(RepositoryPropertyNames.Path, RepositoryDirectory);
+                    }
+                }
+            }
+
             System = BuildSystem;
             UpdateJobRunProperties(executionContext);
         }
@@ -124,6 +152,8 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
         }
 
         public string RepositoryType { get; set; }
+
+        public string RepositoryDirectory { get; set; }
 
         [JsonIgnore]
         public DateTimeOffset? LastMaintenanceAttemptedOn { get; set; }
