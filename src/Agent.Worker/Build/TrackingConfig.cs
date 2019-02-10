@@ -63,12 +63,9 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker.Build
             HashKey = hashKey;
             RepositoryUrl = repository.Url.AbsoluteUri;
             RepositoryType = repository.Type;
+            RepositoryDirectory = SourcesDirectory;
             var path = repository.Properties.Get<string>(RepositoryPropertyNames.Path);
-            if (string.IsNullOrEmpty(path))
-            {
-                RepositoryDirectory = SourcesDirectory;
-            }
-            else
+            if (!string.IsNullOrEmpty(path))
             {
                 if (path.IndexOfAny(Path.GetInvalidPathChars()) > -1)
                 {
